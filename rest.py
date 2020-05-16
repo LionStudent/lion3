@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import cloudinary
 import cloudinary.uploader
 import cloudinary.api
+import mysql.connector
 
 app = Flask(__name__)
 
@@ -83,14 +84,42 @@ def covid(form):
 
     uploadInfo = cloudinary.uploader.upload(filename,crop="limit",tags="samples",width=width,height=height)
 
+    db, cursor = connect()
+    addRecord(db, cursor, form, uploadInfo['url'])
+    db.close()
+
     return uploadInfo['url']
 
 
-    
+def connect():
+    db = mysql.connector.connect(
+        host='sql3.freemysqlhosting.net',
+        port=3306,
+        database='sql3337629',
+        user='sql3337629',
+        password='IGseDDutut'
+    )
 
+    cursor=db.cursor()
+
+    return db, cursor
+
+def createDb():
+    db, cursor = connect()
+    cursor.execute('CREATE TABLE covid19(id INT(6) UNSIGNED AUTO_INCREMENT PRIMARY KEY, name VARCHAR(20), daily VARCHAR(10), plot VARCHAR(10), location VARCHAR(20), fromDate VARCHAR(10), toDate VARCHAR(10), url VARCHAR(100), reg_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)')
+    db.close()
+
+def addRecord(db, cursor, form, url):
+    print(list(form.items()))
+
+    insert = 'INSERT INTO covid19 (name, daily, plot, location, fromDate, toDate, url) VALUES (%s, %s, %s, %s, %s, %s, %s)'
+    data = (form['name'], form['daily'], form['plot'], form['location'], form['from'], form['to'], url)
+    cursor.execute(insert , data)
+    db.commit()
 
 
 '''
+cd matplotlib
 python -m pip install --upgrade pip --user
 python -m pip install -r requirements.txt
 
