@@ -3,6 +3,9 @@ from flask import request
 import requests
 import matplotlib
 import matplotlib.pyplot as plt
+import cloudinary
+import cloudinary.uploader
+import cloudinary.api
 
 app = Flask(__name__)
 
@@ -16,17 +19,17 @@ def test():
     error = None
     if request.method == 'POST':
         #return ", ".join(request.form.values())
-        covid(request.form)
+        url = covid(request.form)
         return '''
 <!DOCTYPE html>
 <html>
     <head></head>
     <body>
         <h1>My Graph</h1>
-        <img src="static/graph.png">
+        <img src="%s">
     </body>
 </html>
-'''
+''' % url
 
     # the code below is executed if the request method
     # was GET or the credentials were invalid
@@ -53,11 +56,36 @@ def covid(form):
     sliceDeaths = deaths[:slice]
     sliceDay = day[:slice]
 
+    '''
+    fig_size = plt.rcParams["figure.figsize"]
+    fig_size[0] *= 0.5
+    fig_size[1] *= 0.5
+    plt.rcParams["figure.figsize"] = fig_size
+    '''
+
+    dpi = 72
+    width = 640
+    height = 480
+    plt.figure(figsize=(width/dpi, height/dpi), dpi=dpi)
+
     plt.plot(sliceDay, sliceDeaths, 'ro')
     plt.axis([0, sliceDay[-1], 0, sliceDeaths[-1]])
     filename = 'static/graph.png'
     plt.savefig(filename)
     plt.clf()
+
+
+    cloudinary.config(
+        cloud_name = "drwusoh6l",
+        api_key = "152287666817656",
+        api_secret = "i2Mtj8mf--UUgG6lGmuq2O9MlFA"
+        )
+
+    uploadInfo = cloudinary.uploader.upload(filename,crop="limit",tags="samples",width=width,height=height)
+
+    return uploadInfo['url']
+
+
     
 
 
@@ -67,5 +95,5 @@ python -m pip install --upgrade pip --user
 python -m pip install -r requirements.txt
 
 export FLASK_APP=rest.py
-python -m flask run rest.py
+python -m flask run
 '''
