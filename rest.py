@@ -1,3 +1,5 @@
+import json
+
 from flask import Flask
 from flask import request
 from flask import jsonify
@@ -25,11 +27,12 @@ def sendSinglePost():
     if request.method == 'POST':
         print("request.args: %s" % request.args)
         print("request.data: %s" % request.data)
-        
-        url = covid(request.data)
+        print("request.form: %s" % request.form)
+        data = json.loads(request.data)
+        url = covid(data)
 
         retval = {"url": url}
-        retval.update(request.data)
+        retval.update(data)
         return jsonify(retval)
 
     # the code below is executed if the request method
@@ -70,18 +73,16 @@ def getRecordsByName(cursor, name):
 def covid(form):
     matplotlib.use('Agg')
 
-    swap = {
-        "deaths":"Deaths",
-        "cases":"Confirmed" ,
-        "unitedstates":"united-states"
-    }
+    "https://api.covid19api.com/total/country/united-states?from=2020-03-01&to=2020-04-01"
 
-    endpoint = 'https://api.covid19api.com/total/country/%s' % swap[form["location"]]
+    endpoint = 'https://api.covid19api.com/total/country/%s?from=%s&to=%s' % (form["location"], form["from"], form["to"])
     req = requests.get(endpoint)
     data = req.json()
-    plot = swap[form["plot"]]
+    metric = form["metric"]
     print(list(data[0].keys()))
-    deaths = list([ x[plot] for x in data if x[plot] > 0])
+    #deaths = list([ x[metric] for x in data if x[metric] > 0])
+    deaths = list([ data[i][metric] - data[i-1][metric] for i, x in enumerate(data) if i >=1])
+    deaths = list([ (deaths[i-6]+deaths[i-5]+deaths[i-4]+deaths[i-3]+deaths[i-2]+deaths[i-1]+deaths[i])/7 for i, x in enumerate(deaths) if i >=6])
     day = range(1,len(deaths)+1)
 
     slice = len(deaths)
@@ -101,7 +102,7 @@ def covid(form):
     plt.figure(figsize=(width/dpi, height/dpi), dpi=dpi)
 
     plt.plot(sliceDay, sliceDeaths, 'ro')
-    plt.axis([0, sliceDay[-1], 0, sliceDeaths[-1]])
+    plt.axis([0, sliceDay[-1], 0, max(sliceDeaths)])
     filename = 'static/graph.png'
     plt.savefig(filename)
     plt.clf()
@@ -143,8 +144,8 @@ def createDb():
 def addRecord(db, cursor, form, url):
     print(list(form.items()))
 
-    insert = 'INSERT INTO covid19 (name, daily, plot, location, fromDate, toDate, url) VALUES (%s, %s, %s, %s, %s, %s, %s)'
-    data = (form['name'], form['daily'], form['plot'], form['location'], form['from'], form['to'], url)
+    insert = 'INSERT INTO covid19 (name, plot, location, fromDate, toDate, url) VALUES (%s, %s, %s, %s, %s, %s)'
+    data = (form['name'], form['metric'], form['location'], form['from'], form['to'], url)
     cursor.execute(insert , data)
     db.commit()
 
