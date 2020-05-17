@@ -18,23 +18,19 @@ app = Flask(__name__)
 def hello_world():
     return 'Hello, World!'
 
-@app.route('/test', methods=['POST', 'GET'])
-def test():
+@app.route('/sendSinglePost', methods=['POST', 'GET'])
+def sendSinglePost():
 
     error = None
     if request.method == 'POST':
-        #return ", ".join(request.form.values())
-        url = covid(request.form)
-        return '''
-<!DOCTYPE html>
-<html>
-    <head></head>
-    <body>
-        <h1>My Graph</h1>
-        <img src="%s">
-    </body>
-</html>
-''' % url
+        print("request.args: %s" % request.args)
+        print("request.data: %s" % request.data)
+        
+        url = covid(request.data)
+
+        retval = {"url": url}
+        retval.update(request.data)
+        return jsonify(retval)
 
     # the code below is executed if the request method
     # was GET or the credentials were invalid
@@ -47,7 +43,7 @@ def after_request(response):
   response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
   return response
 
-@app.route('/post', methods=['GET'])
+@app.route('/receiveAllPosts', methods=['GET'])
 def getPosts():
     name = request.args.get('name')
     db, cursor = connect()
