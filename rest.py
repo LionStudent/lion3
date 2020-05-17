@@ -1,11 +1,15 @@
 from flask import Flask
 from flask import request
-import requests
+from flask import jsonify
+
 import matplotlib
 import matplotlib.pyplot as plt
+
 import cloudinary
 import cloudinary.uploader
 import cloudinary.api
+
+import requests
 import mysql.connector
 
 app = Flask(__name__)
@@ -35,6 +39,30 @@ def test():
     # the code below is executed if the request method
     # was GET or the credentials were invalid
     return "GET: used get method"
+
+@app.route('/post', methods=['GET'])
+def getPosts():
+    name = request.args.get('name')
+    db, cursor = connect()
+    retval = getRecordsByName(cursor, name)
+    db.close()
+    return jsonify(retval)
+
+def getRecordsByName(cursor, name):
+    query = 'select daily,plot,location,url from covid19 where name="%s"' % name
+
+    cursor.execute(query)
+    retval=[]
+    for daily,polt,location,url in cursor:
+        retval.append({
+            'daily': daily,
+            'polt': polt,
+            'location': location,
+            'url': url
+            })
+            
+    return retval
+
 
 def covid(form):
     matplotlib.use('Agg')
@@ -125,4 +153,4 @@ python -m pip install -r requirements.txt
 
 export FLASK_APP=rest.py
 python -m flask run
-'''
+'''	
