@@ -40,6 +40,13 @@ def test():
     # was GET or the credentials were invalid
     return "GET: used get method"
 
+@app.after_request
+def after_request(response):
+  response.headers.add('Access-Control-Allow-Origin', '*')
+  response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+  response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+  return response
+
 @app.route('/post', methods=['GET'])
 def getPosts():
     name = request.args.get('name')
@@ -53,10 +60,10 @@ def getRecordsByName(cursor, name):
 
     cursor.execute(query)
     retval=[]
-    for daily,polt,location,url in cursor:
+    for daily,plot,location,url in cursor:
         retval.append({
             'daily': daily,
-            'polt': polt,
+            'plot': plot,
             'location': location,
             'url': url
             })
