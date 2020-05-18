@@ -42,8 +42,8 @@ def sendSinglePost():
     response = {}
     if request.method == 'POST':
         data = json.loads(request.data)
-        image = createImage(data)
-        url = uploadImageData(image)
+        filename = createImage(data)
+        url = uploadImageData(filename)
         uploadTextData(data, url)
         response["url"] = url
     return jsonify(response)
@@ -67,28 +67,27 @@ def createImage(userData):
     xValues = range(1, len(yValues)+1)
 
     dpi = 72
-    width = 320
-    height = 240
+    width = 640
+    height = 480
     plt.figure(figsize=(width/dpi, height/dpi), dpi=dpi)
 
-    plt.plot(xValues, yValues, 'ro')
+    style = 'ro'
+    plt.plot(xValues, yValues, style)
     plt.axis([0, xValues[-1], 0, max(yValues)])
 
-    memory = BytesIO()
-    plt.savefig(memory, format='png')
-    memory.seek(0)  # rewind to beginning of file
-    imageAsString = base64.b64encode(memory.getvalue())
+    filename = 'static/graph.png'
+    plt.savefig(filename)
     plt.clf()
 
-    return imageAsString
+    return filename
 
-def uploadImageData(imageAsString):
+def uploadImageData(filename):
     cloudinary.config(
         cloud_name = "drwusoh6l",
         api_key = "152287666817656",
         api_secret = "i2Mtj8mf--UUgG6lGmuq2O9MlFA"
         )
-    uploadInfo = cloudinary.uploader.upload("data:image/png;base64,%s" % imageAsString)
+    uploadInfo = cloudinary.uploader.upload(filename)
     return uploadInfo["url"]
 
 def uploadTextData(userData, url):
