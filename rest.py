@@ -1,4 +1,6 @@
 import json
+import base64
+from io import BytesIO
 
 from flask import Flask
 from flask import request
@@ -16,35 +18,82 @@ import mysql.connector
 
 app = Flask(__name__)
 
-@app.route('/')
-def hello_world():
-    return 'Hello, World!'
-
-@app.route('/sendSinglePost', methods=['POST', 'GET'])
-def sendSinglePost():
-
-    error = None
-    if request.method == 'POST':
-        print("request.args: %s" % request.args)
-        print("request.data: %s" % request.data)
-        print("request.form: %s" % request.form)
-        data = json.loads(request.data)
-        url = covid(data)
-
-        retval = {"url": url}
-        retval.update(data)
-        return jsonify(retval)
-
-    # the code below is executed if the request method
-    # was GET or the credentials were invalid
-    return "GET: used get method"
-
 @app.after_request
 def after_request(response):
   response.headers.add('Access-Control-Allow-Origin', '*')
   response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
   response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
   return response
+
+@app.route('/')
+def welcome():
+    return '''
+<html>
+    <head></head>
+    <body>
+        <h1>COVID-19 REST API</h1>
+        <p>Welcome to the "COVID-19 Data" mirocservice endpoint.</p>
+    </body>
+</html>
+'''
+
+@app.route('/sendSinglePost', methods=['POST'])
+def sendSinglePost():
+    response = {}
+    if request.method == 'POST':
+        data = json.loads(request.data)
+        image = createImage(data)
+        url = uploadImageData(image)
+        uploadTextData(data, url)
+        response["url"] = url
+    return jsonify(response)
+
+def createImage(userData):
+    matplotlib.use('Agg')
+
+    endpoint = 'https://api.covid19api.com/total/country/%s?from=%s&to=%s' % (form["location"], form["from"], form["to"])
+    req = requests.get(endpoint)
+    covidData = req.json()
+    
+    yValues = yValuesByMetric(covidData, userData["metric"])
+
+    if userData["process"] == "increase":
+        yValues = dailyIncrease(yValues)
+
+    if userData["process"].endswith("average"):
+        yValues = sevenDayAverage(yValues)
+
+    xValues = range(1, len(yValues)+1)
+
+    dpi = 72
+    width = 640
+    height = 480
+    plt.figure(figsize=(width/dpi, height/dpi), dpi=dpi)
+
+    plt.plot(xValues, yValues, 'ro')
+    plt.axis([0, xValues[-1], 0, max(yValues)])
+
+    memory = BytesIO()
+    plt.savefig(memory, format='png')
+    memory.seek(0)  # rewind to beginning of file
+    imageAsString = base64.b64encode(memory.getvalue())
+    plt.clf()
+
+    return imageAsString
+
+def uploadImageData(imageAsString):
+    cloudinary.config(
+        cloud_name = "drwusoh6l",
+        api_key = "152287666817656",
+        api_secret = "i2Mtj8mf--UUgG6lGmuq2O9MlFA"
+        )
+    uploadInfo = cloudinary.uploader.upload("data:image/png;base64,%s" % imageAsString)
+    return uploadInfo["url"]
+
+def uploadTextData(userData, url):
+    db, cursor = connect()
+    addRecord(db, cursor, userData, url)
+    db.close()
 
 @app.route('/receiveAllPosts', methods=['GET'])
 def getPosts():
@@ -69,59 +118,35 @@ def getRecordsByName(cursor, name):
             
     return retval
 
+def yValuesByMetric(covidData, metric):
+    yValues = []
+    numValues = len(covidData)
+    for i in range(numValues):
+        yValues.append(covidData[i][metric])
+    return yValues
 
-def covid(form):
-    matplotlib.use('Agg')
+def sevenDayAverage(yValues):
+    yAverageValues = []
+    numValues = len(yValues)
+    for i in range(numValues):
+        if i < 7:
+            continue
+        else:
+            weekTotal = yValues[i]+yValues[i-1]+yValues[i-2]+yValues[i-3]+yValues[i-4]+yValues[i-5]+yValues[i-6]
+            average = weekTotal / 7
+            yAverageValues.append(average)
+    return yAverageValues
 
-    "https://api.covid19api.com/total/country/united-states?from=2020-03-01&to=2020-04-01"
-
-    endpoint = 'https://api.covid19api.com/total/country/%s?from=%s&to=%s' % (form["location"], form["from"], form["to"])
-    req = requests.get(endpoint)
-    data = req.json()
-    metric = form["metric"]
-    print(list(data[0].keys()))
-    #deaths = list([ x[metric] for x in data if x[metric] > 0])
-    deaths = list([ data[i][metric] - data[i-1][metric] for i, x in enumerate(data) if i >=1])
-    deaths = list([ (deaths[i-6]+deaths[i-5]+deaths[i-4]+deaths[i-3]+deaths[i-2]+deaths[i-1]+deaths[i])/7 for i, x in enumerate(deaths) if i >=6])
-    day = range(1,len(deaths)+1)
-
-    slice = len(deaths)
-    sliceDeaths = deaths[:slice]
-    sliceDay = day[:slice]
-
-    '''
-    fig_size = plt.rcParams["figure.figsize"]
-    fig_size[0] *= 0.5
-    fig_size[1] *= 0.5
-    plt.rcParams["figure.figsize"] = fig_size
-    '''
-
-    dpi = 72
-    width = 640
-    height = 480
-    plt.figure(figsize=(width/dpi, height/dpi), dpi=dpi)
-
-    plt.plot(sliceDay, sliceDeaths, 'ro')
-    plt.axis([0, sliceDay[-1], 0, max(sliceDeaths)])
-    filename = 'static/graph.png'
-    plt.savefig(filename)
-    plt.clf()
-
-
-    cloudinary.config(
-        cloud_name = "drwusoh6l",
-        api_key = "152287666817656",
-        api_secret = "i2Mtj8mf--UUgG6lGmuq2O9MlFA"
-        )
-
-    uploadInfo = cloudinary.uploader.upload(filename,crop="limit",tags="samples",width=width,height=height)
-
-    db, cursor = connect()
-    addRecord(db, cursor, form, uploadInfo['url'])
-    db.close()
-
-    return uploadInfo['url']
-
+def dailyIncrease(yValues):
+    yIncreaseValues = []
+    numValues = len(yValues)
+    for i in range(numValues):
+        if i < 1:
+            continue
+        else:
+            difference = yValues[i]-yValues[i-1]
+            yIncreaseValues.append(difference)
+    return yIncreaseValues
 
 def connect():
     db = mysql.connector.connect(
@@ -131,9 +156,7 @@ def connect():
         user='sql3337629',
         password='IGseDDutut'
     )
-
     cursor=db.cursor()
-
     return db, cursor
 
 def createDb():
