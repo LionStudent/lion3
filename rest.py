@@ -51,12 +51,13 @@ def sendSinglePost():
 def createImage(userData):
     matplotlib.use('Agg')
 
-    endpoint = 'https://api.covid19api.com/total/country/%s?from=%s&to=%s' % (form["location"], form["from"], form["to"])
+    endpoint = 'https://api.covid19api.com/total/country/united-states?from=%s&to=%s' % (userData["from"], userData["to"])
     req = requests.get(endpoint)
     covidData = req.json()
     
     yValues = yValuesByMetric(covidData, userData["metric"])
 
+    print(userData)
     if not userData["isTotal"]:
         yValues = dailyIncrease(yValues)
 
