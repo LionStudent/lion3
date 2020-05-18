@@ -57,17 +57,17 @@ def createImage(userData):
     
     yValues = yValuesByMetric(covidData, userData["metric"])
 
-    if userData["process"] == "increase":
+    if not userData["isTotal"]:
         yValues = dailyIncrease(yValues)
 
-    if userData["process"].endswith("average"):
+    if not userData["isRaw"]:
         yValues = sevenDayAverage(yValues)
 
     xValues = range(1, len(yValues)+1)
 
     dpi = 72
-    width = 640
-    height = 480
+    width = 320
+    height = 240
     plt.figure(figsize=(width/dpi, height/dpi), dpi=dpi)
 
     plt.plot(xValues, yValues, 'ro')
@@ -104,15 +104,17 @@ def getPosts():
     return jsonify(retval)
 
 def getRecordsByName(cursor, name):
-    query = 'select daily,plot,location,url from covid19 where name="%s"' % name
+    query = 'select isTotal,isRaw,metric,fromDate,toDate,url from covid19 where name="%s"' % name
 
     cursor.execute(query)
     retval=[]
-    for daily,plot,location,url in cursor:
+    for isTotal,isRaw,metric,fromDate,toDate,url in cursor:
         retval.append({
-            'daily': daily,
-            'plot': plot,
-            'location': location,
+            'isTotal': isTotal,
+            'isRaw': isRaw,
+            'metric': metric,
+            'from': fromDate,
+            'to': toDate,
             'url': url
             })
             
@@ -161,17 +163,21 @@ def connect():
 
 def createDb():
     db, cursor = connect()
-    cursor.execute('CREATE TABLE covid19(id INT(6) UNSIGNED AUTO_INCREMENT PRIMARY KEY, name VARCHAR(20), daily VARCHAR(10), plot VARCHAR(10), location VARCHAR(20), fromDate VARCHAR(10), toDate VARCHAR(10), url VARCHAR(100), reg_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)')
+    cursor.execute('CREATE TABLE covid19(id INT(6) UNSIGNED AUTO_INCREMENT PRIMARY KEY, name VARCHAR(20), isTotal BOOLEAN, isRaw BOOLEAN, metric VARCHAR(10), fromDate VARCHAR(10), toDate VARCHAR(10), url VARCHAR(100), reg_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)')
+    db.close()
+
+def deleteDb():
+    db, cursor = connect()
+    cursor.execute('DROP TABLE covid19')
     db.close()
 
 def addRecord(db, cursor, form, url):
     print(list(form.items()))
 
-    insert = 'INSERT INTO covid19 (name, plot, location, fromDate, toDate, url) VALUES (%s, %s, %s, %s, %s, %s)'
-    data = (form['name'], form['metric'], form['location'], form['from'], form['to'], url)
+    insert = 'INSERT INTO covid19 (name, isTotal, isRaw, metric, fromDate, toDate, url) VALUES (%s, %s, %s, %s, %s, %s, %s)'
+    data = (form['name'], form['isTotal'], form['isRaw'], form['metric'], form['from'], form['to'], url)
     cursor.execute(insert , data)
     db.commit()
-
 
 '''
 cd matplotlib
@@ -180,4 +186,4 @@ python -m pip install -r requirements.txt
 
 export FLASK_APP=rest.py
 python -m flask run
-'''	
+'''
