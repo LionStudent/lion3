@@ -4,7 +4,8 @@ from flask import Flask
 from flask import request
 from flask import jsonify
 
-import image
+import covid19
+import store
 
 app = Flask(__name__)
 
@@ -31,17 +32,14 @@ def welcome():
 def sendSinglePost():
     response = {}
     if request.method == 'POST':
-        data = json.loads(request.data)
-        filename = image.create(data)
-        url = uploadImageData(filename)
-        uploadTextData(data, url)
-        response["url"] = url
-    return jsonify(response)
+        options = json.loads(request.data)
+        filename = covid19.getImageFilename(options)
+        options['url'] = store.addImageData(filename)
+        store.addTextData(options)
+    return jsonify(options)
 
 @app.route('/receiveAllPosts', methods=['GET'])
 def getPosts():
     name = request.args.get('name')
-    db, cursor = connect()
-    retval = getRecordsByName(cursor, name)
-    db.close()
-    return jsonify(retval)
+    posts = store.searchTextData(name)
+    return jsonify(posts)
