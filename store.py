@@ -3,11 +3,11 @@ import cloudinary.uploader
 import mysql.connector
 
 def addImageData(imageFilename):
-    cloudName = "drwusoh6l"
-    apiKey = "152287666817656"
-    apiSecret = "i2Mtj8mf--UUgG6lGmuq2O9MlFA"
-
-    cloudinary.config(cloudName, apiKey, apiSecret)
+    cloudinary.config(
+        cloud_name="drwusoh6l",
+        api_key="152287666817656",
+        api_secret="i2Mtj8mf--UUgG6lGmuq2O9MlFA"
+        )
     uploadInfo = cloudinary.uploader.upload(imageFilename)
 
     return uploadInfo["url"]
